@@ -151,6 +151,7 @@ pub struct CollisionEnded(pub Entity, pub Entity);
 
 /// Sends collision events and updates [`CollidingEntities`].
 pub fn report_contacts(
+    mut commands: Commands,
     mut colliders: Query<&mut CollidingEntities>,
     collisions: Res<Collisions>,
     mut collision_ev_writer: EventWriter<Collision>,
@@ -160,10 +161,12 @@ pub fn report_contacts(
     // TODO: Would batching events be worth it?
     for ((entity1, entity2), contacts) in collisions.get_internal().iter() {
         if contacts.during_current_frame {
+            commands.trigger_targets(Collision(contacts.clone), [entity1, entity2]);
             collision_ev_writer.send(Collision(contacts.clone()));
 
             // Collision started
             if !contacts.during_previous_frame {
+                commands.trigger_targets(CollisionStarted, [entity1, entity2]);
                 collision_started_ev_writer.send(CollisionStarted(*entity1, *entity2));
 
                 if let Ok(mut colliding_entities1) = colliders.get_mut(*entity1) {
@@ -177,6 +180,7 @@ pub fn report_contacts(
 
         // Collision ended
         if !contacts.during_current_frame && contacts.during_previous_frame {
+            commands.trigger_targets(CollisionEnded, [entity1, entity2]);
             collision_ended_ev_writer.send(CollisionEnded(*entity1, *entity2));
 
             if let Ok(mut colliding_entities1) = colliders.get_mut(*entity1) {
